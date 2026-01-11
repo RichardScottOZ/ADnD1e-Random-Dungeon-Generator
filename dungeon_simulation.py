@@ -5235,18 +5235,18 @@ def dungeon_sim(suffix, usepath, periodic_checks, verbosity, rooms_check, levels
                 import traceback
                 traceback.print_exc()
 
-            df['Coins'] = [gold]
-            df['Gems'] = [gem_total]
-            df['Jewellery'] = [jewellery_total]
-            df['Magic'] = [magic_total]
-            df['Total Gold Equivalent'] = [gold + gem_total + jewellery_total + magic_total]
-            df['coord_lim'] = [coord_lim]
-            df['x'] = [xwidth]
-            df['y'] = [ywidth]
-            df['z'] = [zwidth-1]
-            df['Periodic Checks'] = [PERIODIC_CHECKS]
+        df['Coins'] = [gold]
+        df['Gems'] = [gem_total]
+        df['Jewellery'] = [jewellery_total]
+        df['Magic'] = [magic_total]
+        df['Total Gold Equivalent'] = [gold + gem_total + jewellery_total + magic_total]
+        df['coord_lim'] = [coord_lim]
+        df['x'] = [xwidth]
+        df['y'] = [ywidth]
+        df['z'] = [zwidth-1]
+        df['Periodic Checks'] = [PERIODIC_CHECKS]
 
-            df.to_csv('dungeon-stats.csv', index=False)
+        df.to_csv('dungeon-stats.csv', index=False)
 
     if VERBOSITY:
         with open('dungeon.pkl','wb') as fd:
