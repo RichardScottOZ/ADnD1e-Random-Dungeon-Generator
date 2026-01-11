@@ -4,6 +4,16 @@ This module provides modern, visually appealing dungeon maps while maintaining
 compatibility with the original HTML table output.
 """
 
+import html
+
+
+def sanitize_for_html(value):
+    """Safely convert a value to HTML-escaped string."""
+    if value is None:
+        return ''
+    return html.escape(str(value))
+
+
 def generate_enhanced_html(dungeon_data, level_num, room_stack, downlist, coord_limits):
     """
     Generate an enhanced HTML visualization with SVG-based rendering.
@@ -31,7 +41,7 @@ def generate_enhanced_html(dungeon_data, level_num, room_stack, downlist, coord_
     svg_width = width * cell_size
     svg_height = height * cell_size
     
-    html = f"""<!DOCTYPE html>
+    output_html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -366,21 +376,24 @@ def generate_enhanced_html(dungeon_data, level_num, room_stack, downlist, coord_
             # Create cell with tooltip
             cell_id = f"cell_{i}_{j}"
             tooltip_text = get_tooltip_text(cell_value, room_stack, i + xmin, j + ymin, 0 - down - 1)
+            # Escape quotes in tooltip for HTML attribute
+            tooltip_text_attr = tooltip_text.replace('"', '&quot;')
             
-            html += f'                    <rect class="cell" id="{cell_id}" x="{x}" y="{y}" '
-            html += f'width="{cell_size}" height="{cell_size}" '
-            html += f'fill="{fill_color}" stroke="{stroke_color}" '
-            html += f'data-tooltip="{tooltip_text}"/>\n'
+            output_html += f'                    <rect class="cell" id="{cell_id}" x="{x}" y="{y}" '
+            output_html += f'width="{cell_size}" height="{cell_size}" '
+            output_html += f'fill="{fill_color}" stroke="{stroke_color}" '
+            output_html += f'data-tooltip="{tooltip_text_attr}"/>\n'
             
             # Add text label if not empty
             if cell_value != 'B':
                 text_color = get_text_color(cell_value)
-                # Truncate long labels for display
+                # Truncate long labels for display and escape for SVG
                 display_text = cell_value[:6] if len(cell_value) > 6 else cell_value
-                html += f'                    <text class="cell-text" x="{x + cell_size/2}" y="{y + cell_size/2}" '
-                html += f'fill="{text_color}">{display_text}</text>\n'
+                display_text_escaped = html.escape(display_text)
+                output_html += f'                    <text class="cell-text" x="{x + cell_size/2}" y="{y + cell_size/2}" '
+                output_html += f'fill="{text_color}">{display_text_escaped}</text>\n'
     
-    html += """                </svg>
+    output_html += """                </svg>
             </div>
         </div>
         
@@ -388,12 +401,12 @@ def generate_enhanced_html(dungeon_data, level_num, room_stack, downlist, coord_
 """
     
     # Add legend
-    html += generate_legend()
+    output_html += generate_legend()
     
     # Add room details and statistics
-    html += generate_room_details(room_stack, level_num)
+    output_html += generate_room_details(room_stack, level_num)
     
-    html += """    </div>
+    output_html += """    </div>
     
     <script>
         let currentZoom = 1;
@@ -512,7 +525,7 @@ def generate_enhanced_html(dungeon_data, level_num, room_stack, downlist, coord_
 </html>
 """
     
-    return html
+    return output_html
 
 
 def get_cell_colors(cell_value):
@@ -613,8 +626,10 @@ def get_tooltip_text(cell_value, room_stack, x, y, z):
                     if 'contents' in room and 'empty' not in room['contents']:
                         if 'monster' in room['contents']:
                             monster = room['contents']['monster']
-                            tooltip += f"<span class='monster'>👹 Monster: {monster.get('type', 'Unknown')}</span><br>"
-                            tooltip += f"<span class='monster'>Number: {monster.get('No', '?')}</span><br>"
+                            monster_type = sanitize_for_html(monster.get('type', 'Unknown'))
+                            monster_no = sanitize_for_html(monster.get('No', '?'))
+                            tooltip += f"<span class='monster'>👹 Monster: {monster_type}</span><br>"
+                            tooltip += f"<span class='monster'>Number: {monster_no}</span><br>"
                         
                         if 'treasure' in room['contents']:
                             treasure = room['contents']['treasure']['type']
@@ -623,13 +638,17 @@ def get_tooltip_text(cell_value, room_stack, x, y, z):
                                 tooltip += "<span class='treasure'>💰 Treasure:</span><br>"
                                 for coin_type in ['copper', 'silver', 'electrum', 'gold', 'platinum']:
                                     if treasure.get(coin_type, 0) > 0:
-                                        tooltip += f"<span class='treasure'>  {coin_type.title()}: {treasure[coin_type]}</span><br>"
+                                        coin_amount = sanitize_for_html(treasure[coin_type])
+                                        tooltip += f"<span class='treasure'>  {coin_type.title()}: {coin_amount}</span><br>"
                                 if treasure.get('gems', 0) > 0:
-                                    tooltip += f"<span class='treasure'>  💎 Gems: {treasure['gems']}</span><br>"
+                                    gems_amount = sanitize_for_html(treasure['gems'])
+                                    tooltip += f"<span class='treasure'>  💎 Gems: {gems_amount}</span><br>"
                                 if treasure.get('jewellery', 0) > 0:
-                                    tooltip += f"<span class='treasure'>  📿 Jewellery: {treasure['jewellery']}</span><br>"
+                                    jewellery_amount = sanitize_for_html(treasure['jewellery'])
+                                    tooltip += f"<span class='treasure'>  📿 Jewellery: {jewellery_amount}</span><br>"
                                 if treasure.get('magic', 0) > 0:
-                                    tooltip += f"<span class='treasure'>  ✨ Magic Items: {treasure['magic']}</span><br>"
+                                    magic_amount = sanitize_for_html(treasure['magic'])
+                                    tooltip += f"<span class='treasure'>  ✨ Magic Items: {magic_amount}</span><br>"
                     else:
                         tooltip += "Empty Room"
                 else:
@@ -678,37 +697,37 @@ def generate_legend():
         ('#ff1493', 'Magic Items'),
     ]
     
-    html = """
+    output_html = """
         <div class="legend">
             <h3>📜 Legend</h3>
             <div class="legend-grid">
 """
     
     for color, description in legend_items:
-        html += f"""
+        output_html += f"""
                 <div class="legend-item">
                     <div class="legend-color" style="background-color: {color};"></div>
                     <span>{description}</span>
                 </div>
 """
     
-    html += """
+    output_html += """
             </div>
         </div>
 """
     
-    return html
+    return output_html
 
 
 def generate_room_details(room_stack, level_num):
     """Generate detailed room information."""
-    html = """
+    output_html = """
         <div class="room-details">
             <h3>🗝️ Room Details</h3>
 """
     
     if 'shape_dict' not in room_stack:
-        html += "<p>No rooms on this level.</p>"
+        output_html += "<p>No rooms on this level.</p>"
     else:
         room_count = 0
         monster_count = 0
@@ -722,26 +741,30 @@ def generate_room_details(room_stack, level_num):
             if abs(keylist[0][2]) == level_num + 1:
                 room_count += 1
                 
-                html += f"""
+                output_html += f"""
             <div class="room-entry">
                 <div class="room-title">Room #{room_num}</div>
                 <div class="room-content">
 """
                 
                 if 'empty' in room['contents']:
-                    html += "<p>This room is empty.</p>"
+                    output_html += "<p>This room is empty.</p>"
                 else:
                     contents = room['contents']
                     
                     if 'monster' in contents:
                         monster_count += 1
                         monster = contents['monster']
-                        html += f"<p><strong class='monster'>👹 Monster:</strong> {monster.get('type', 'Unknown')}</p>"
-                        html += f"<p><strong class='monster'>Number:</strong> {monster.get('No', '?')}</p>"
-                        html += f"<p><strong class='monster'>XP Value:</strong> {monster.get('XP', 0)} each</p>"
+                        monster_type = sanitize_for_html(monster.get('type', 'Unknown'))
+                        monster_no = sanitize_for_html(monster.get('No', '?'))
+                        monster_xp = sanitize_for_html(monster.get('XP', 0))
+                        output_html += f"<p><strong class='monster'>👹 Monster:</strong> {monster_type}</p>"
+                        output_html += f"<p><strong class='monster'>Number:</strong> {monster_no}</p>"
+                        output_html += f"<p><strong class='monster'>XP Value:</strong> {monster_xp} each</p>"
                         
                         if 'lair' in monster:
-                            html += f"<p><strong>Lair Chance:</strong> {monster['lair']}</p>"
+                            lair_chance = sanitize_for_html(monster['lair'])
+                            output_html += f"<p><strong>Lair Chance:</strong> {lair_chance}</p>"
                     
                     if 'treasure' in contents:
                         treasure = contents['treasure']['type']
@@ -749,65 +772,73 @@ def generate_room_details(room_stack, level_num):
                         
                         if has_treasure:
                             treasure_found = True
-                            html += "<p><strong class='treasure'>💰 Treasure:</strong></p>"
-                            html += "<div class='stats-grid'>"
+                            output_html += "<p><strong class='treasure'>💰 Treasure:</strong></p>"
+                            output_html += "<div class='stats-grid'>"
                             
                             for coin_type in ['copper', 'silver', 'electrum', 'gold', 'platinum']:
                                 if treasure.get(coin_type, 0) > 0:
-                                    html += f"""
+                                    coin_amount = sanitize_for_html(treasure[coin_type])
+                                    output_html += f"""
                                 <div class='stat-item'>
                                     <div class='stat-label'>{coin_type.title()}</div>
-                                    <div class='stat-value'>{treasure[coin_type]}</div>
+                                    <div class='stat-value'>{coin_amount}</div>
                                 </div>
 """
                             
                             if treasure.get('gems', 0) > 0:
-                                html += f"""
+                                gems_amount = sanitize_for_html(treasure['gems'])
+                                output_html += f"""
                                 <div class='stat-item'>
                                     <div class='stat-label'>💎 Gems</div>
-                                    <div class='stat-value'>{treasure['gems']}</div>
+                                    <div class='stat-value'>{gems_amount}</div>
                                 </div>
 """
                             
                             if treasure.get('jewellery', 0) > 0:
-                                html += f"""
+                                jewellery_amount = sanitize_for_html(treasure['jewellery'])
+                                output_html += f"""
                                 <div class='stat-item'>
                                     <div class='stat-label'>📿 Jewellery</div>
-                                    <div class='stat-value'>{treasure['jewellery']}</div>
+                                    <div class='stat-value'>{jewellery_amount}</div>
                                 </div>
 """
                             
                             if treasure.get('magic', 0) > 0:
-                                html += f"""
+                                magic_amount = sanitize_for_html(treasure['magic'])
+                                output_html += f"""
                                 <div class='stat-item'>
                                     <div class='stat-label'>✨ Magic Items</div>
-                                    <div class='stat-value'>{treasure['magic']}</div>
+                                    <div class='stat-value'>{magic_amount}</div>
                                 </div>
 """
                             
-                            html += "</div>"  # Close stats-grid
+                            output_html += "</div>"  # Close stats-grid
                             
                             # Storage and protection
                             if 'store' in contents['treasure']:
-                                html += f"<p><strong>Stored in:</strong> {contents['treasure']['store']}</p>"
+                                store_info = sanitize_for_html(contents['treasure']['store'])
+                                output_html += f"<p><strong>Stored in:</strong> {store_info}</p>"
                             
                             if 'protection' in contents['treasure']:
                                 prot = contents['treasure']['protection']
-                                html += f"<p><strong>Protection:</strong> {prot.title()}</p>"
+                                prot_type = sanitize_for_html(prot)
+                                output_html += f"<p><strong>Protection:</strong> {prot_type.title()}</p>"
                                 if prot in contents['treasure']:
-                                    html += f"<p><em>{contents['treasure'][prot]}</em></p>"
+                                    prot_detail = sanitize_for_html(contents['treasure'][prot])
+                                    output_html += f"<p><em>{prot_detail}</em></p>"
                     
                     if 'trap' in contents:
-                        html += f"<p><strong>⚠️ Trap:</strong> {contents['trap']}</p>"
+                        trap_info = sanitize_for_html(contents['trap'])
+                        output_html += f"<p><strong>⚠️ Trap:</strong> {trap_info}</p>"
                 
-                html += """
+                output_html += """
                 </div>
             </div>
 """
         
         # Summary
         if room_count > 0:
-            html += f"""
+            output_html += f"""
             <div class="info-panel" style="margin-top: 20px;">
                 <div class="info-card">
                     <h3>📊 Level Summary</h3>
@@ -829,8 +860,8 @@ def generate_room_details(room_stack, level_num):
             </div>
 """
     
-    html += """
+    output_html += """
         </div>
 """
     
-    return html
+    return output_html
